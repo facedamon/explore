@@ -10,7 +10,26 @@ import java.time.ZoneOffset;
 import java.util.*;
 
 /**
- * Hello world!
+ * 1. 文章 hash
+ * article:id {title, link, now, voted}
+ * id 利用redis incr自增
+ * now 时间，获取当前时间距离1970的秒数
+ * voted 投票数
+ * <p>
+ * 2. 分数 zset
+ * score: {分数，文章id}
+ * 分数：now + VOTE_SCORE
+ * 3. 时间 zset
+ * time: {时间，文章id}
+ * 4. 投票
+ * 判断当前时间秒数是否超过一周，如果超过一周表示文章过期，不能投票
+ * 投票集合 set
+ * voted:id {投票者}
+ * 更新voted:id投票者信息
+ * 更新score分数，增加 VOTE_SCORE
+ * 更新文章hash，hash中的voted自增
+ * 5. set分页
+ * zrevrange 按照分数逆序
  */
 public class Chapter01 {
 
