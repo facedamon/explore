@@ -172,3 +172,15 @@ public class Chapter01 {
         });
     }
 }
+
+/**
+ *  sadd zset添加
+ *  expire 设置过期，单位秒
+ *  hmset 设置整个hash
+ *  zscore 获取zset中指定成员的分数
+ *  zincrby zset指定成员分数增加步长
+ *  hincrBy hash field 增加步长
+ *  zrevrange zset按照分数逆序
+ *  hgetAll 获取整个hash
+ *  zinterstore 多个集合取交集，分数相加
+ **/
