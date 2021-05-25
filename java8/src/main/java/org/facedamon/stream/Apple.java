@@ -1,4 +1,4 @@
-package org.facedamon.java8.stream;
+package org.facedamon.stream;
 
 import com.alibaba.fastjson.JSON;
 import lombok.Builder;

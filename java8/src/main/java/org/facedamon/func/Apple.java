@@ -1,4 +1,4 @@
-package org.facedamon.java8.func;
+package org.facedamon.func;
 
 import com.alibaba.fastjson.JSON;
 import lombok.Builder;
