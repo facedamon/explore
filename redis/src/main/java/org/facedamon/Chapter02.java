@@ -20,7 +20,8 @@ public class Chapter02 {
         Jedis conn = new Jedis("127.0.0.1");
         conn.select(15);
         
-        testLoginCookies(conn);
+        //testLoginCookies(conn);
+        testShoppingCartCookies(conn);
     }
 
     private void testLoginCookies(Jedis conn) throws InterruptedException {
@@ -55,6 +56,47 @@ public class Chapter02 {
 
     private String checkToken(Jedis conn, String token) {
         return conn.hget("login:", token);
+    }
+
+    private void testShoppingCartCookies(Jedis conn) throws InterruptedException{
+        System.out.println("\n----- testShoppingCartCookies -----");
+        String token = UUID.randomUUID().toString();
+        System.out.println("We`ll refresh our session...");
+        updateToken(conn, token, "jack", "itemX");
+        System.out.println("And add an item to the shopping cart");
+        addToCart(conn, token, "itemY", 3);
+        Map<String, String> r = conn.hgetAll("cart:" + token);
+        System.out.println("Our shopping cart currently has:");
+        r.forEach((k,v) -> {
+            System.out.println(" " + k + ": " + v);
+        });
+        System.out.println();
+        assert r.size() >= 1;
+
+        System.out.println("Let`s clean out our sessions and carts");
+        CleanFullSessionsThread thread = new CleanFullSessionsThread(0);
+        thread.start();
+        Thread.sleep(1000);
+        thread.quit();
+        Thread.sleep(2000);
+        if (thread.isAlive()) {
+            throw new RuntimeException("The clean sessions thread is still alive!!!");
+        }
+        r = conn.hgetAll("cart:" + token);
+        System.out.println("Our shopping cart now contains:");
+        if (Objects.isNull(r) || r.isEmpty()) {
+            System.out.println("Empty");
+        }
+        assert r.size() == 0;
+    }
+
+    private void addToCart(Jedis conn, String session, String item, int count) {
+        if (count <= 0) {
+            //如果物品数量小于0，则从购物车中删除该session下item类目
+            conn.hdel("cart:" + session, item);
+        } else {
+            conn.hset("cart:" + session, item, String.valueOf(count));
+        }
     }
 
     /**
@@ -122,9 +164,54 @@ public class Chapter02 {
                 //删除viewed 中的token记录
                 Queue<String> viewed = new ArrayDeque<>();
                 for (String token: tokens) {
-                    viewed.add(token);
+                    viewed.add("viewed:"+token);
                 }
                 conn.del(viewed.stream().toArray(String[]::new));
+            }
+        }
+    }
+
+    // 删除超出limit100条以内的token记录
+    // 包括 login，recent，viewed，cart
+    public class CleanFullSessionsThread extends Thread{
+        private Jedis conn;
+        private int limit;
+        private boolean quit;
+
+        public CleanFullSessionsThread(int limit) {
+            this.conn = new Jedis("127.0.0.1");
+            this.conn.select(15);
+            this.limit = limit;
+        }
+
+        public void quit() {
+            quit = true;
+        }
+
+        @Override
+        public void run() {
+            while (!quit) {
+                long size = conn.zcard("recent:");
+                if (size <= limit) {
+                    try {
+                        sleep(1000);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                    continue;
+                }
+                long endIndex = Math.min(size - limit, 100);
+                Set<String> sessionSet = conn.zrange("recent:", 0, endIndex - 1);
+                String[] sessions = sessionSet.stream().toArray(String[]::new);
+                conn.hdel("login:", sessions);
+                conn.zrem("recent:", sessions);
+
+                Queue<String> cart = new ArrayDeque<>();
+                for (String session: sessions) {
+                    cart.add("viewed:" + session);
+                    cart.add("cart:" + session);
+                }
+                conn.del(cart.stream().toArray(String[]::new));
             }
         }
     }
