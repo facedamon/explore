@@ -1,0 +1,131 @@
+package org.facedamon;
+
+import redis.clients.jedis.Jedis;
+
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.*;
+
+/**
+ * @author damon
+ * @desc
+ * @date 2021/5/25
+ */
+public class Chapter02 {
+    public static void main(String[] args) throws InterruptedException {
+        new Chapter02().run();
+    }
+
+    private void run() throws InterruptedException {
+        Jedis conn = new Jedis("127.0.0.1");
+        conn.select(15);
+        
+        testLoginCookies(conn);
+    }
+
+    private void testLoginCookies(Jedis conn) throws InterruptedException {
+        System.out.println("\n----- testLoginCookies -----");
+        String token = UUID.randomUUID().toString();
+        updateToken(conn, token, "jack", "itemX");
+        System.out.println("We just logged-in/updated token: " + token);
+        System.out.println("For user: 'jack'\n");
+
+        System.out.println("What username do we get when we look-up that token?");
+        String r = checkToken(conn, token);
+        System.out.println(r+"\n");
+        assert  r != null;
+
+        System.out.println("Let`s drop the maximum number of cookies to 0 to clean them out");
+        System.out.println("We will start a thread to do the cleaning, while we stop it later");
+        
+        CleanSessionThread thread = new CleanSessionThread(0);
+        thread.start();
+        Thread.sleep(1000);
+        thread.quit();
+        Thread.sleep(2000);
+        if (thread.isAlive()) {
+            throw new RuntimeException("The clean session thread is still alive!!!");
+        }
+
+        long s = conn.hlen("login:");
+        System.out.println("The current number of sessions still available is " + s);
+        assert s == 0;
+
+    }
+
+    private String checkToken(Jedis conn, String token) {
+        return conn.hget("login:", token);
+    }
+
+    /**
+     *
+     *  可以直接将登陆用户和令牌的信息存储到字符串键值对里面
+     *  然后使用expire为这个字符串和记录用户商品浏览记录的有序集合设置过期时间
+     *  这样就不需要再使用有序集合来记录他们最近出现的令牌了
+     *  但是
+     *  这样就没有办法将会话限制再1000w之内了
+     *
+     **/
+    private void updateToken(Jedis conn, String token, String username, String item) {
+        long second = LocalDateTime.now().toEpochSecond(ZoneOffset.of("+8"));
+        //token中存储username信息
+        conn.hset("login:", token, username);
+        //token最近登陆时间作为分数 (会话)
+        conn.zadd("recent:", second, token);
+        //浏览商品历史
+        if (!Objects.isNull(item)) {
+            //该token下的item记录
+            conn.zadd("viewed:" + token, second, item);
+            //移除后25个元素
+            conn.zremrangeByRank("viewed:" + token, 0, -26);
+            //TODO why   给item成员-1分
+            conn.zincrby("viewed:", -1, item);
+        }
+    }
+
+    // 删除超出limit100条以内的token记录
+    // 包括 login，recent，viewed
+    public class CleanSessionThread extends Thread {
+        private Jedis conn;
+        private int limit;
+        private boolean quit;
+
+        public CleanSessionThread(int limit) {
+            this.conn = new Jedis("127.0.0.1");
+            this.conn.select(15);
+            this.limit = limit;
+        }
+
+        public void quit() {
+            quit = true;
+        }
+
+        @Override
+        public void run() {
+            while (!quit) {
+                long size = conn.zcard("recent:");
+                if (size <= limit) {
+                    try {
+                        sleep(1000);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                    continue;
+                }
+                long endIndex = Math.min(size - limit, 100);
+                Set<String> tokenSet = conn.zrange("recent:", 0, endIndex - 1);
+                String[] tokens = tokenSet.stream().toArray(String[]::new);
+                //删除login 中的token对象
+                conn.hdel("login:", tokens);
+                //删除recent 中的token成员
+                conn.zrem("recent:", tokens);
+                //删除viewed 中的token记录
+                Queue<String> viewed = new ArrayDeque<>();
+                for (String token: tokens) {
+                    viewed.add(token);
+                }
+                conn.del(viewed.stream().toArray(String[]::new));
+            }
+        }
+    }
+}
