@@ -2,6 +2,8 @@ package org.facedamon;
 
 import redis.clients.jedis.Jedis;
 
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.*;
@@ -21,7 +23,8 @@ public class Chapter02 {
         conn.select(15);
         
         //testLoginCookies(conn);
-        testShoppingCartCookies(conn);
+        //testShoppingCartCookies(conn);
+        testCacheRequest(conn);
     }
 
     private void testLoginCookies(Jedis conn) throws InterruptedException {
@@ -99,6 +102,36 @@ public class Chapter02 {
         }
     }
 
+    private void testCacheRequest(Jedis conn) {
+        System.out.println("\n----- testCacheRequest -----");
+        String token = UUID.randomUUID().toString();
+        Callback callback = r -> "content for " + r;
+        updateToken(conn, token, "jack", "itemX");
+        String url = "http://test.com/?item=itemX";
+        System.out.println("We are going to cache a simple request against " + url);
+        String result = cacheRequest(conn, url, callback);
+        System.out.println("We got initial content:" + result);
+        System.out.println();
+        assert  result != null;
+
+        assert !canCache(conn, "http://test.com/");
+        assert !canCache(conn, "http://test.com/?item=itemX&_=123456");
+    }
+
+    private String cacheRequest(Jedis conn, String request, Callback callback) {
+        if (!canCache(conn, request)) {
+            return callback != null ? callback.call(request) : null;
+        }
+
+        String pageKey = "cache:" + hashRequest(request);
+        String content = conn.get(pageKey);
+        if (null == content && callback != null) {
+            content = callback.call(request);
+            conn.setex(pageKey, 300, content);
+        }
+        return content;
+    }
+
     /**
      *
      *  可以直接将登陆用户和令牌的信息存储到字符串键值对里面
@@ -123,6 +156,45 @@ public class Chapter02 {
             //TODO why   给item成员-1分
             conn.zincrby("viewed:", -1, item);
         }
+    }
+
+    @FunctionalInterface
+    public interface Callback {
+        String call(String request);
+    }
+
+    public boolean canCache(Jedis conn, String request) {
+        try {
+            URL url = new URL(request);
+            Map<String, String> params = new HashMap<>();
+            if (!Objects.isNull(url.getQuery())) {
+                for (String param: url.getQuery().split("&")) {
+                    String[] pair = param.split("=", 2);
+                    params.put(pair[0], pair.length == 2 ? pair[1] : null);
+                }
+            }
+
+            String itemId = extractItemId(params);
+            if (itemId == null || isDynamic(params)) {
+                return false;
+            }
+            Long rank = conn.zrank("viewed:", itemId);
+            return rank != null && rank < 10000;
+        } catch (MalformedURLException e) {
+            return false;
+        }
+    }
+
+    public String extractItemId(Map<String, String> params) {
+        return params.get("item");
+    }
+
+    public boolean isDynamic(Map<String,String> params) {
+        return params.containsKey("_");
+    }
+
+    public String hashRequest(String request) {
+        return String.valueOf(request.hashCode());
     }
 
     // 删除超出limit100条以内的token记录
