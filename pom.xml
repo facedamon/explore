@@ -13,6 +13,7 @@
         <module>java8</module>
         <module>thread</module>
         <module>redis</module>
+        <module>spring-cloud-example</module>
     </modules>
 
     <dependencies>

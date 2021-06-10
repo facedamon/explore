@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: user-service
+
+
+server:
+  port: 2100
+
+eureka:
+  client:
+    fetch-registry: true
+    register-with-eureka: true
+    service-url:
+     defaultZone: http://127.0.0.1:8761/eureka
+  instance:
+    prefer-ip-address: true
+
+logging:
+  level:
+    org:
+     springframework: INFO
+     facedamon: DEBUG
