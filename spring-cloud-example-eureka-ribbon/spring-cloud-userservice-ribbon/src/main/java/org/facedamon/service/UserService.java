@@ -25,7 +25,7 @@ public class UserService {
         return Stream.of(
                 User.builder().id(1).name("张三").build(),
                 User.builder().id(2).name("王五").build())
-                .map(u -> new UserVo(u))
+                .map(UserVo::new)
                 .collect(Collectors.toList());
     }
 
