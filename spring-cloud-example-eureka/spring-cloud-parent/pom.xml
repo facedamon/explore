@@ -8,6 +8,7 @@
         <module>../spring-cloud-userservice</module>
         <module>../spring-cloud-product-service</module>
         <module>../../spring-cloud-example-eureka-ribbon</module>
+        <module>../spring-cloud-example-eureka-feign</module>
     </modules>
 
     <parent>
