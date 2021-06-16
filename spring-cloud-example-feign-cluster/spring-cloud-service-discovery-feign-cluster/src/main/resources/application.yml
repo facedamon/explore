@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: service-discovery
+
+
+server:
+  port: 8761
+
+eureka:
+  client:
+    fetch-registry: false
+    register-with-eureka: false
+    service-url:
+      defaultZone: http://${eureka.instance.hostname}:${server.port}/eureka
+  instance:
+    hostname: 127.0.0.1
+  server:
+    wait-time-in-ms-when-sync-empty: 5
+
+logging:
+  level:
+    org:
+      springframework: INFO

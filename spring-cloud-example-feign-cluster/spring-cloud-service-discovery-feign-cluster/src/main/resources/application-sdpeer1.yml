@@ -1,0 +1,18 @@
+server:
+  port: 8260
+
+eureka:
+  instance:
+    hostname: sdpeer1
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: http://sdpeer2:8262/eureka,http://sdpeer3:8263/erueka
+
+security:
+  basic:
+    enabled: true
+  user:
+    name: facedamon
+    password: pwd
