@@ -10,6 +10,7 @@
         <module>../../spring-cloud-example-eureka-ribbon</module>
         <module>../../spring-cloud-example-eureka-feign</module>
         <module>../../spring-cloud-example-feign-cluster</module>
+        <module>../../spring-cloud-example-ribbonex</module>
     </modules>
 
     <parent>
