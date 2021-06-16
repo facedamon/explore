@@ -11,6 +11,7 @@
         <module>../../spring-cloud-example-eureka-feign</module>
         <module>../../spring-cloud-example-feign-cluster</module>
         <module>../../spring-cloud-example-ribbonex</module>
+        <module>../../spring-cloud-example-hystrix</module>
     </modules>
 
     <parent>
